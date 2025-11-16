@@ -332,22 +332,38 @@ def poll_spotify():
                 album_images = track.get("album", {}).get("images", [])
                 album_image = album_images[0]["url"] if album_images else None
 
-                new_song = {"id": song_id, "name": name, "artist": artist, "image": album_image}
+                new_song = {
+                    "id": song_id,
+                    "name": name,
+                    "artist": artist,
+                    "image": album_image
+                }
 
-                if not first_emit_done or current_song.get("id") != song_id:
+                # ONLY emit if song actually changed
+                if current_song.get("id") != song_id:
                     print(f"🎶 Song update → {name} — {artist}")
+
                     previous_song = current_song.copy() if current_song else None
                     current_song = new_song
+
                     previous_reveal = None
                     if previous_song and previous_song.get("id"):
                         prev_id = previous_song["id"]
                         owners = SONG_DATA.get(prev_id, {}).get("owners", [])
                         guesses = [g for _, g in all_guesses.get(prev_id, [])]
+
                         most_common, votes = (None, 0)
                         if guesses:
                             counter = Counter(guesses)
                             most_common, votes = counter.most_common(1)[0]
-                        previous_reveal = {"previous_song": previous_song, "owners": owners, "most_common": most_common, "votes": votes}
+
+                        previous_reveal = {
+                            "previous_song": previous_song,
+                            "owners": owners,
+                            "most_common": most_common,
+                            "votes": votes
+                        }
+
                         all_guesses.pop(prev_id, None)
 
                     payload = {"current_song": current_song}
@@ -355,7 +371,7 @@ def poll_spotify():
                         payload["previous_reveal"] = previous_reveal
 
                     socketio.emit("song_update", payload)
-                    first_emit_done = True
+
             else:
                 # nothing playing
                 # emit a heartbeat occasionally?
