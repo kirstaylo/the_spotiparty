@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Party Playlist Game 🎶</title>
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <link rel="stylesheet" href="{{ url_for('static', filename='base.css') }}">
+
+  <style>
+    .back-btn {
+      margin: 18px 0 22px 0;
+      background-color: var(--spotify-green);
+      color: #000;
+      border: none;
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-weight: 600;
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: background-color 0.2s ease, transform 0.1s ease;
+      align-self:center;
+      width:auto;
+    }
+    .back-btn:hover { background-color: #1ed760; }
+    .back-btn:active { transform: scale(0.97); }
+  </style>
+</head>
+
+<body>
+  <h1>Guess Whose Song It Is 🎧</h1>
+
+  <div class="card">
+    <div id="songContainer">
+      <div id="songTitle" class="song">Waiting for song...</div>
+      <div id="songArtist" class="artist"></div>
+    </div>
+
+    <label for="username">Your Name:</label>
+    <select id="username">
+      <option value="">Select your name</option>
+      {% for g in guessers %}
+        <option value="{{ g }}">{{ g }}</option>
+      {% endfor %}
+    </select>
+
+    <label for="guess">Whose top songs included this song?</label>
+    <select id="guess">
+      <option value="">Select a person</option>
+      {% for o in owners %}
+        <option value="{{ o }}">{{ o }}</option>
+      {% endfor %}
+    </select>
+
+    <button id="submitGuess" disabled>Submit Guess</button>
+
+    <div id="message" class="message"></div>
+  </div>
+  <button class="back-btn" onclick="window.location.href='/analysis'">← Analysis Page</button>
+  <script>
+const socket = io();
+const usernameSelect = document.getElementById("username");
+const guessSelect = document.getElementById("guess");
+const submitBtn = document.getElementById("submitGuess");
+const messageDiv = document.getElementById("message");
+const songTitle = document.getElementById("songTitle");
+const songArtist = document.getElementById("songArtist");
+
+let currentSongId = null;
+
+// --- Persist username ---
+const savedName = localStorage.getItem("username");
+if (savedName) usernameSelect.value = savedName;
+usernameSelect.addEventListener("change", () => {
+  localStorage.setItem("username", usernameSelect.value);
+  updateGuessButtonState();
+});
+
+// --- Guess tracking ---
+function hasGuessedForSong(songId, username) {
+  if (!songId || !username) return false;
+  const guesses = JSON.parse(localStorage.getItem("guessedSongs") || "{}");
+  return guesses[username]?.includes(songId);
+}
+
+function saveGuess(songId, username) {
+  const guesses = JSON.parse(localStorage.getItem("guessedSongs") || "{}");
+  if (!guesses[username]) guesses[username] = [];
+  if (!guesses[username].includes(songId)) guesses[username].push(songId);
+  localStorage.setItem("guessedSongs", JSON.stringify(guesses));
+}
+
+function clearOldGuesses() {
+  // This ensures previous guesses are cleaned once a new song loads
+  localStorage.setItem("guessedSongs", JSON.stringify({}));
+}
+
+// --- UI logic ---
+function updateGuessButtonState() {
+  const username = usernameSelect.value;
+
+  if (!currentSongId) {
+    submitBtn.disabled = true;
+    messageDiv.textContent = "Waiting for song...";
+    return;
+  }
+
+  if (!username) {
+    submitBtn.disabled = true;
+    messageDiv.textContent = "Please select your name.";
+    return;
+  }
+
+  if (hasGuessedForSong(currentSongId, username)) {
+    submitBtn.disabled = true;
+    messageDiv.textContent = "You’ve already guessed for this song!";
+  } else {
+    submitBtn.disabled = false;
+    messageDiv.textContent = "";
+  }
+}
+
+// --- Socket event: new song ---
+socket.on("song_update", (data) => {
+  const song = data.current_song;
+  if (!song) return;
+
+  // If new song, clear previous guesses (fresh round)
+  if (currentSongId !== song.id) {
+    clearOldGuesses();
+  }
+
+  currentSongId = song.id;
+  songTitle.textContent = song.name;
+  songArtist.textContent = "by " + song.artist;
+
+  messageDiv.textContent = "";
+  guessSelect.value = "";
+  updateGuessButtonState();
+});
+
+// --- Guess submission ---
+submitBtn.addEventListener("click", async () => {
+  const username = usernameSelect.value;
+  const guess = guessSelect.value;
+
+  if (!username || !guess) {
+    messageDiv.textContent = "Please select your name and guess.";
+    return;
+  }
+
+  if (!currentSongId) {
+    messageDiv.textContent = "⚠️ No song loaded yet — please wait.";
+    return;
+  }
+
+  if (hasGuessedForSong(currentSongId, username)) {
+    messageDiv.textContent = "You’ve already guessed for this song!";
+    return;
+  }
+
+  try {
+    const response = await fetch("/api/guess", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, guess, song_id: currentSongId })
+    });
+    const result = await response.json();
+
+    if (result.success) {
+      // ✅ Show success once (don’t immediately overwrite with “already guessed”)
+      messageDiv.textContent = "✅ Guess submitted!";
+      saveGuess(currentSongId, username);
+      submitBtn.disabled = true;
+    } else {
+      messageDiv.textContent = result.message || "❌ Guess failed.";
+    }
+  } catch (err) {
+    console.error("Error submitting guess:", err);
+    messageDiv.textContent = "⚠️ Error submitting guess.";
+  }
+});
+</script>
+
+
+
+</body>
+</html>

@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Leaderboard 🏆</title>
+  <meta http-equiv="refresh" content="5"> <!-- Auto refresh every 5 seconds -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='base.css') }}">
+</head>
+<body>
+  <h1>Leaderboard 🏆</h1>
+
+  {% if leaderboard %}
+  <table>
+    <tr>
+      <th>Player</th>
+      <th>Score</th>
+    </tr>
+    {% for name, score in leaderboard %}
+    <tr>
+      <td>{{ name }}</td>
+      <td>{{ score }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% else %}
+  <p>No scores yet — be the first to guess right!</p>
+  {% endif %}
+
+  <div class="note">Auto-refreshing every 5s</div>
+</body>
+</html>

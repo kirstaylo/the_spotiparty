@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Music Analysis</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='base.css') }}">
+  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+
+  <style>
+    :root {
+      --spotify-green: #1db954;
+      --highlight-purple: #bb86fc;
+      --panel-bg: rgba(16,16,18,0.86);
+      --text: #eaeaea;
+      --divider-grey: rgba(255,255,255,0.12);
+    }
+
+    html, body {
+      height:100%;
+      margin:0;
+      padding:0;
+      font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial;
+      color:var(--text);
+      background-image: linear-gradient(140deg,#0e1020 0%,#0f1b32 35%,#1a0f2a 70%);
+      background-attachment: fixed;
+      background-size: cover;
+      box-sizing:border-box;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    body {
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:flex-start;
+      min-height:100vh;
+    }
+
+    h1 {
+      margin-top: 2.2rem;
+      margin-bottom: 0.8rem;
+      color: var(--spotify-green);
+      font-size: 1.6rem;
+      text-align:center;
+    }
+    @media (max-width:760px){ h1{ display:none } }
+
+    .card {
+      width:96%;
+      max-width:980px;
+      margin:0.6rem auto;
+      background: var(--panel-bg);
+      border-radius:12px;
+      padding:16px;
+      box-shadow:0 8px 30px rgba(0,0,0,0.5);
+      display:flex;
+      flex-direction:column;
+      overflow:hidden;
+    }
+
+    .card-body { overflow-y:auto; padding:10px; -webkit-overflow-scrolling:touch; }
+
+    .tabs { display:flex; background:#141414; border-radius:10px; border:1px solid var(--divider-grey); overflow:hidden; }
+    .tab {
+      flex:1;
+      text-align:center;
+      padding:8px 10px;
+      font-weight:600;
+      font-size:0.92rem;
+      color:#bfbfbf;
+      position:relative;
+      cursor:pointer;
+    }
+    .tab:not(:last-child)::after {
+      content:"";
+      position:absolute;
+      right:0; top:12%; height:76%; width:1px;
+      background:var(--divider-grey); opacity:0.9;
+    }
+    .tab:hover { background:rgba(255,255,255,0.03); color:#fff; }
+    .tab.active { background:var(--spotify-green); color:#000; }
+    @media (max-width:760px){ .tab{ padding:7px 5px; font-size:0.82rem } }
+
+    .tab-content { display:none; padding:14px 8px 8px; }
+    .tab-content.active { display:block; }
+
+    .stat { text-align:center; margin-bottom:18px; padding:4px 0; }
+    .stat h3 { margin:8px 0; color:var(--spotify-green); font-size:1rem; }
+
+    select {
+      width:100%;
+      padding:10px 12px;
+      border-radius:8px;
+      background:#1a1a1a;
+      color:var(--text);
+      border:1px solid rgba(255,255,255,0.06);
+      font-size:0.95rem;
+      margin-top:10px;
+      box-sizing:border-box;
+    }
+
+    #tasteGraph { 
+      width:100%; 
+      height:60vh; 
+      border-radius:8px; 
+      background:transparent; 
+      box-sizing:border-box; 
+    }
+    @media (max-width:760px){ #tasteGraph{ height:65vh; } }
+
+    .back-btn {
+      margin: 18px 0 22px 0;
+      background-color: var(--spotify-green);
+      color: #000;
+      border: none;
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-weight: 600;
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: background-color 0.2s ease, transform 0.1s ease;
+      align-self:center;
+      width:auto;
+    }
+    .back-btn:hover { background-color: #1ed760; }
+    .back-btn:active { transform: scale(0.97); }
+
+    @media (max-width:760px){
+      .card{ margin:6px auto; padding:10px; }
+    }
+  </style>
+</head>
+<body>
+  <h1>Music Analysis</h1>
+
+  <div class="card">
+    <div class="tabs">
+      <div class="tab active" data-tab="group">Group Stats</div>
+      <div class="tab" data-tab="taste">Taste Graph</div>
+      <div class="tab" data-tab="compare">Compare</div>
+    </div>
+
+    <div class="card-body">
+      <div id="group" class="tab-content active">
+        <div class="stat">
+          <h3>Most common song</h3>
+          <div><strong>{{ data.most_common_track }}</strong> - {{ data.most_common_track_artist }}</div>
+          <div>Appeared in {{ data.most_common_track_count }} people's playlists</div>
+        </div>
+
+        <div class="stat">
+          <h3>Most common artist</h3>
+          <div><strong>{{ data.most_common_artist }}</strong></div>
+          <div>Heard by {{ data.most_common_artist_count }} people</div>
+        </div>
+
+        <div class="stat">
+          <h3>Most common genre</h3>
+          <div><strong>{{ data.most_common_genre }}</strong> — {{ data.most_common_genre_count }} listeners</div>
+        </div>
+
+        <div class="stat">
+          <h3>Average song stats</h3>
+          <div><strong>Duration:</strong> {{ data.average_song_length_minutes }} minutes</div>
+          <div><strong>Popularity:</strong> {{ data.average_popularity }}</div>
+          <div><strong>Average release date:</strong> {{ data.average_release_date }}</div>
+        </div>
+      </div>
+
+      <div id="taste" class="tab-content">
+        <div id="tasteGraph"></div>
+        <select id="highlightSelect"></select>
+      </div>
+
+      <div id="compare" class="tab-content">
+        <label for="personSelect" style="font-weight:600;color:#cfcfcf;">Select a person</label>
+        <select id="personSelect"></select>
+
+        <div id="compareResults" style="margin-top:12px;display:none"></div>
+
+        <hr style="border:none;border-top:1px solid rgba(255,255,255,0.06);margin:12px 0;">
+
+        <label for="compareSelect" style="font-weight:600;color:#cfcfcf;">Compare with</label>
+        <select id="compareSelect"></select>
+
+        <div id="compareDetail" style="margin-top:12px;display:none"></div>
+      </div>
+    </div>
+  </div>
+
+  <button class="back-btn" onclick="window.location.href='/'">← Back to Guess Page</button>
+
+<script>
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById(tab.dataset.tab).classList.add('active');
+
+    if (tab.dataset.tab === 'taste') {
+      setTimeout(() => {
+        try {
+          Plotly.Plots.resize(document.getElementById('tasteGraph'));
+          centerGraph();
+        } catch(e){}
+      }, 140);
+    }
+  });
+});
+
+const embeddings = {{ embeddings|tojson }};
+const neighbors = {{ neighbors|tojson }};
+const distances = {{ distances|tojson }};
+const person_genres = {{ person_genres|tojson }};
+
+const names = embeddings.map(e => e.user);
+const x = embeddings.map(e => e.x);
+const y = embeddings.map(e => e.y);
+const z = embeddings.map(e => e.z);
+
+function populateSelect(id, includeNoneText, excludeName = null) {
+  const select = document.getElementById(id);
+  select.innerHTML = "";
+  const none = document.createElement('option');
+  none.value = "";
+  none.textContent = includeNoneText;
+  none.selected = true;
+  select.appendChild(none);
+  names.forEach(name => {
+    if (name === excludeName) return;
+    const opt = document.createElement('option');
+    opt.value = name;
+    opt.textContent = name;
+    select.appendChild(opt);
+  });
+}
+
+populateSelect('highlightSelect', 'Select a person to highlight');
+populateSelect('personSelect', 'Select a person');
+populateSelect('compareSelect', 'Select someone to compare with');
+
+const personSelect = document.getElementById('personSelect');
+const compareSelect = document.getElementById('compareSelect');
+const compareResults = document.getElementById('compareResults');
+const compareDetail = document.getElementById('compareDetail');
+
+/* Reset compare dropdown when person changes */
+personSelect.addEventListener('change', () => {
+  populateSelect('compareSelect', 'Select someone to compare with', personSelect.value);
+  compareSelect.value = "";
+  compareDetail.style.display = 'none';
+  compareDetail.innerHTML = "";
+});
+
+const allNeighborDistances = [];
+neighbors.forEach(r => {
+  const c = parseFloat(r.closest_distance);
+  const f = parseFloat(r.furthest_distance);
+  if (!Number.isNaN(c)) allNeighborDistances.push(c);
+  if (!Number.isNaN(f)) allNeighborDistances.push(f);
+});
+const minAll = Math.min(...allNeighborDistances);
+const maxAll = Math.max(...allNeighborDistances);
+const spanAll = (maxAll - minAll) || 1;
+
+const trace = {
+  x, y, z,
+  mode: 'markers',
+  type: 'scatter3d',
+  text: names,
+  hoverinfo: 'text',
+  marker: { size: 7, color: names.map(()=> '#1db954'), opacity: 0.95 }
+};
+
+const layout = {
+  dragmode: 'orbit',
+  paper_bgcolor: 'rgba(0,0,0,0)',
+  plot_bgcolor: 'rgba(0,0,0,0)',
+  scene: {
+    xaxis:{visible:true, color:'#888', gridcolor:'#222'},
+    yaxis:{visible:true, color:'#888', gridcolor:'#222'},
+    zaxis:{visible:true, color:'#888', gridcolor:'#222'},
+    aspectmode:'auto',
+    camera: { eye: { x:1.3, y:1.3, z:1.3 } }
+  },
+  margin:{l:0,r:0,b:0,t:0},
+  font:{ color:'#ddd' }
+};
+
+const plotEl = document.getElementById('tasteGraph');
+Plotly.newPlot(plotEl, [trace], layout, {responsive:true, displayModeBar:false})
+  .then(() => { centerGraph(); });
+
+function centerGraph(){
+  try {
+    Plotly.relayout(plotEl, {
+      'scene.camera.eye': { x:1.3, y:1.3, z:1.3 }
+    });
+  } catch(e){}
+}
+
+window.addEventListener('resize', ()=> {
+  Plotly.Plots.resize(plotEl);
+  centerGraph();
+});
+
+document.getElementById('highlightSelect').addEventListener('change', function(){
+  const selected = this.value;
+  const colors = names.map(n => n === selected ? '#bb86fc' : '#1db954');
+  const sizes = names.map(n => n === selected ? 11 : 7);
+  Plotly.restyle(plotEl, { 'marker.color': [colors], 'marker.size': [sizes] });
+  centerGraph();
+});
+
+personSelect.addEventListener('change', () => {
+  const val = personSelect.value;
+  if (!val) {
+    compareResults.style.display = 'none';
+    return;
+  }
+  compareResults.style.display = 'block';
+  const row = neighbors.find(r => r.user === val);
+  if (!row) {
+    compareResults.innerHTML = `<div>No neighbor data for ${val}</div>`;
+    return;
+  }
+
+  const closestName = row['closest point'] || row.closest_point || 'Unknown';
+  const furthestName = row['furthest point'] || row.furthest_point || 'Unknown';
+  const closestDist = parseFloat(row.closest_distance);
+  const furthestDist = parseFloat(row.furthest_distance);
+
+  const closestSim = 1 - ((closestDist - minAll) / spanAll);
+  const furthestSim = 1 - ((furthestDist - minAll) / spanAll);
+
+  compareResults.innerHTML = `
+    <h3 style="color:var(--spotify-green);margin:0 0 6px 0;">Music buddy</h3>
+    <div><strong>${closestName}</strong> — ${(Math.max(0, Math.min(1, closestSim)) * 100).toFixed(1)}%</div>
+    <h3 style="color:var(--spotify-green);margin:12px 0 6px 0;">Music nemesis</h3>
+    <div><strong>${furthestName}</strong> — ${(Math.max(0, Math.min(1, furthestSim)) * 100).toFixed(1)}%</div>
+  `;
+});
+
+compareSelect.addEventListener('change', () => {
+  const base = personSelect.value;
+  const compare = compareSelect.value;
+  if (!base || !compare) {
+    compareDetail.style.display = 'none';
+    return;
+  }
+  compareDetail.style.display = 'block';
+
+  const d = (distances[base] && distances[base][compare]) || (distances[compare] && distances[compare][base]);
+  if (typeof d === 'undefined') {
+    compareDetail.innerHTML = '<div>No distance data available</div>';
+    return;
+  }
+
+  const sim = 1 - ((parseFloat(d) - minAll) / spanAll);
+
+  const baseArtists = new Set((person_genres[base] && person_genres[base].artists) || []);
+  const baseGenres = new Set((person_genres[base] && person_genres[base].genres) || []);
+  const compArtists = new Set((person_genres[compare] && person_genres[compare].artists) || []);
+  const compGenres = new Set((person_genres[compare] && person_genres[compare].genres) || []);
+
+  const commonArtists = [...baseArtists].filter(a => compArtists.has(a));
+  const commonGenres = [...baseGenres].filter(g => compGenres.has(g));
+
+  compareDetail.innerHTML = `
+    <h3 style="color:var(--spotify-green);margin:0 0 6px 0;">Similarity score</h3>
+    <div>${(Math.max(0, Math.min(1, sim)) * 100).toFixed(1)}%</div>
+    <div style="margin-top:8px;"><strong>Common artists:</strong> ${commonArtists.join(', ') || 'None'}</div>
+    <div style="margin-top:6px;"><strong>Common genres:</strong> ${commonGenres.join(', ') || 'None'}</div>
+  `;
+});
+</script>
+
+</body>
+</html>

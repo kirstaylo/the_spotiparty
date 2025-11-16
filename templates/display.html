@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Now Playing 🎶</title>
+  <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+  <link rel="stylesheet" href="{{ url_for('static', filename='base.css') }}">
+
+  <style>
+    body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      min-height: 100vh;
+      margin: 0;
+      padding: 2rem 0;
+      text-align: center;
+    }
+
+    .now-playing {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      background: rgba(0, 0, 0, 0.6);
+      border-radius: 20px;
+      padding: 1.5rem;
+      width: 90%;
+      max-width: 600px;
+      margin-bottom: 1.5rem;
+    }
+
+    .now-playing h3 {
+      margin: 0 0 1rem 0;
+      font-size: 1.1rem; /* smaller header */
+      color: #fff;
+    }
+
+    .album-art {
+      width: 240px;
+      height: 240px;
+      border-radius: 16px;
+      object-fit: cover;
+      display: none;
+      margin-bottom: 1.2rem;
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
+    }
+
+    .song-title {
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: var(--spotify-green, #1db954);
+      margin: 0.4rem 0;
+    }
+
+    .artist {
+      font-size: 1rem;
+      color: #ccc;
+      margin-bottom: 0.5rem;
+    }
+
+    #revealSection {
+      background: rgba(0, 0, 0, 0.6);
+      border-radius: 16px;
+      padding: 1.5rem;
+      width: 80%;
+      max-width: 500px;
+    }
+
+    #revealSection h3 {
+      font-size: 1.1rem; /* smaller header */
+      margin-top: 0;
+      margin-bottom: 1rem;
+      color: #fff;
+    }
+
+    .owner-badge {
+      display: inline-block;
+      background: var(--spotify-green, #1db954);
+      color: black;
+      font-weight: bold;
+      border-radius: 12px;
+      padding: 0.3rem 0.8rem;
+      margin: 0.2rem;
+    }
+
+    @media (max-width: 600px) {
+      .album-art {
+        width: 180px;
+        height: 180px;
+      }
+      .song-title {
+        font-size: 1.2rem;
+      }
+      .artist {
+        font-size: 0.95rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="now-playing">
+    <h3>Now Playing 🎶</h3>
+    <img id="albumArt" src="" alt="Album art" class="album-art">
+    <div class="song-title" id="currentTitle">Waiting for song...</div>
+    <div class="artist" id="currentArtist"></div>
+  </div>
+
+  <div class="reveal" id="revealSection" style="display:none;">
+    <h3>Previous Song Reveal</h3>
+    <div id="prevTitle" class="song-title"></div>
+    <div id="prevArtist" class="artist"></div>
+    <div id="ownerList" class="owners"></div>
+    <div id="mostCommon" class="most-common"></div>
+  </div>
+
+  <script>
+    const socket = io();
+
+    socket.on("song_update", (data) => {
+      const current = data.current_song;
+      const reveal = data.previous_reveal;
+
+      document.getElementById("currentTitle").textContent = current.name;
+      document.getElementById("currentArtist").textContent = current.artist ? ("by " + current.artist) : "";
+
+      const albumArt = document.getElementById("albumArt");
+      if (current.image) {
+        albumArt.src = current.image;
+        albumArt.style.display = "block";
+      } else {
+        albumArt.style.display = "none";
+        albumArt.src = "";
+      }
+
+      const revealSection = document.getElementById("revealSection");
+      if (reveal && reveal.previous_song) {
+        revealSection.style.display = "block";
+        document.getElementById("prevTitle").textContent = reveal.previous_song.name;
+        document.getElementById("prevArtist").textContent = "by " + reveal.previous_song.artist;
+
+        const ownerList = document.getElementById("ownerList");
+        ownerList.innerHTML = "";
+        (reveal.owners || []).forEach(o => {
+          const badge = document.createElement("div");
+          badge.classList.add("owner-badge");
+          badge.textContent = o;
+          ownerList.appendChild(badge);
+        });
+
+        const mc = document.getElementById("mostCommon");
+        mc.innerHTML = reveal.most_common
+          ? `<strong>${reveal.most_common}</strong> got the most guesses (${reveal.votes})`
+          : "No guesses made this round.";
+      } else {
+        revealSection.style.display = "none";
+      }
+    });
+  </script>
+</body>
+</html>
