@@ -229,10 +229,7 @@ def load_playlist():
     for _, row in df.iterrows():
         song_id = row.get("ID") or row.get("id")
         owners_raw = row.get("people", "")
-        owners = [_normalize_name(o.strip())
-          for o in str(owners_raw).replace(";", ",").split(",")
-          if o.strip()]
-
+        owners = str(owners_raw).split(";")
 
         songs[song_id] = {
             "id": song_id,
@@ -240,6 +237,7 @@ def load_playlist():
             "artist": row.get("Artist", "") or row.get("artist", ""),
             "owners": owners,
         }
+        print(owners)
 
     print(f"✅ Loaded {len(songs)} songs from playlist.csv")
     return songs
