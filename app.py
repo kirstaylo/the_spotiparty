@@ -24,12 +24,6 @@ from github_utils import (
 
 load_dotenv()
 
-print("DEBUG_ENV:", {
-    "owner": os.getenv("GITHUB_REPO_OWNER"),
-    "repo": os.getenv("GITHUB_REPO_NAME"),
-    "token": "SET" if os.getenv("GITHUB_TOKEN") else "MISSING"
-})
-
 # ---------------------------
 # Config / Environment
 # ---------------------------
@@ -54,6 +48,7 @@ SPOTIPY_REDIRECT_URI = os.getenv("SPOTIPY_REDIRECT_URI", "http://localhost:5050/
 app = Flask(__name__)
 app.secret_key = SECRET_KEY
 socketio = SocketIO(app, async_mode="threading", cors_allowed_origins="*")
+
 
 # Spotify OAuth setup
 scope = "user-read-currently-playing user-read-playback-state"
@@ -373,6 +368,9 @@ def poll_spotify():
 def handle_connect():
     if current_song.get("id"):
         socketio.emit("song_update", {"current_song": current_song})
+
+threading.Thread(target=poll_spotify, daemon=True).start()
+poller_started = True
 
 # ---------------------------
 # Routes
