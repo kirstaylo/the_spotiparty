@@ -199,7 +199,7 @@ def load_guessers():
     data = drive_load_json("players.json", None)
 
     # players.json may contain "guessers" OR "players"
-    raw = data.get("guessers") or data.get("players") or []
+    raw = data.get("guessers") or []
 
     # Normalize names
     guessers = [_normalize_name(x) for x in raw]
@@ -207,19 +207,14 @@ def load_guessers():
 
 
 def load_data_owners():
-    df = drive_load_csv("playlist.csv")
-    if df.empty:
-        return []
+    data = drive_load_json("players.json", None)
 
-    owners = set()
-    for _, row in df.iterrows():
-        owners_raw = str(row.get("people", ""))
-        for o in owners_raw.replace(";", ",").split(","):
-            o = o.strip()
-            if o:
-                owners.add(_normalize_name(o))
+    # players.json may contain "guessers" OR "players"
+    raw = data.get("data_owners")  or []
 
-    return sorted(owners)
+    # Normalize names
+    guessers = [_normalize_name(x) for x in raw]
+    return sorted(guessers)
 
 
 def load_playlist():
