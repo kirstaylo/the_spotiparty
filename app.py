@@ -390,7 +390,7 @@ def handle_connect():
     # include reveal so front-end keeps showing it
     if last_reveal:
         payload["previous_reveal"] = last_reveal
-    socketio.emit("song_update", payload)
+    socketio.emit("song_update", payload, to=request.sid)
 
 threading.Thread(target=poll_spotify, daemon=True).start()
 poller_started = True
