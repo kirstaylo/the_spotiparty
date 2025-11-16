@@ -23,7 +23,8 @@ from github_utils import (
 )
 
 load_dotenv()
-
+global last_reveal
+last_reveal = False
 # ---------------------------
 # Config / Environment
 # ---------------------------
@@ -368,6 +369,7 @@ def poll_spotify():
 
                     payload = {"current_song": current_song}
                     if previous_reveal:
+                        last_reveal = previous_reveal   # persist it
                         payload["previous_reveal"] = previous_reveal
 
                     socketio.emit("song_update", payload)
@@ -380,10 +382,15 @@ def poll_spotify():
             print("⚠️ Error polling Spotify (outer):", e)
         time.sleep(5)
 
+
+
 @socketio.on("connect")
 def handle_connect():
-    if current_song.get("id"):
-        socketio.emit("song_update", {"current_song": current_song})
+    payload = {"current_song": current_song}
+    # include reveal so front-end keeps showing it
+    if last_reveal:
+        payload["previous_reveal"] = last_reveal
+    socketio.emit("song_update", payload)
 
 threading.Thread(target=poll_spotify, daemon=True).start()
 poller_started = True
