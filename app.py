@@ -237,7 +237,6 @@ def load_playlist():
             "artist": row.get("Artist", "") or row.get("artist", ""),
             "owners": owners,
         }
-        print(owners)
 
     print(f"✅ Loaded {len(songs)} songs from playlist.csv")
     return songs
@@ -538,3 +537,5 @@ def handle_reset_leaderboard():
         return jsonify({"success": False, "message": "Leaderboard reset but failed to persist to GitHub."}), 500
     return jsonify({"success": True, "message": "Leaderboard reset"}), 200
 
+if __name__ == "__main__":
+    socketio.run(app, debug=True, host="127.0.0.1", port=5050)
